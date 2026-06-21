@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartHer MRI</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:#0d1117;color:#e6edf3;display:flex;flex-direction:column}
+.page{display:none;flex-direction:column;flex:1;min-height:0}
+.page.active{display:flex}
+
+/* ── PAGE 1 ── */
+#p1header{flex:0 0 auto;padding:24px 32px 0;display:flex;justify-content:space-between;align-items:flex-end}
+#p1header h1{font-size:22px;font-weight:700} #p1header h1 span{color:#539bf5}
+.hbtn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600}
+.hbtn.prim{background:#238636;color:#fff} .hbtn.prim:hover{background:#2ea043}
+.hbtn.sec{background:#1b212a;color:#adbac7;border:1px solid #30363d}
+.hbtn.sec:hover{border-color:#539bf5;color:#e6edf3}
+#p1toolbar{flex:0 0 auto;padding:16px 32px;display:flex;gap:10px;align-items:center}
+#searchBox{flex:1;padding:8px 12px;background:#1b212a;border:1px solid #30363d;
+  border-radius:8px;color:#e6edf3;font-size:13px;outline:none}
+#searchBox:focus{border-color:#539bf5}
+#p1list{flex:1;min-height:0;overflow-y:auto;padding:0 32px 24px;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;align-content:start}
+.pt-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px;
+  display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
+.pt-card:hover{border-color:#539bf5}
+.pt-card .ptname{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.pt-card .ptmeta{font-size:12px;color:#768390;line-height:1.6}
+.pt-card .ptactions{display:flex;gap:8px;margin-top:4px}
+.pt-card .ptactions button{flex:1;padding:7px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600}
+.loadbtn{background:#1f6feb;color:#fff} .loadbtn:hover{background:#388bfd}
+.delbtn{background:#1b212a;color:#ff7b72;border:1px solid #3d1f1f!important} .delbtn:hover{background:#3d1f1f}
+.ftbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:.5px;flex:0 0 auto}
+.ftbadge.nifti {background:rgba(83,155,245,.18);color:#539bf5}
+.ftbadge.dicom {background:rgba(94,188,94,.18);color:#57ab5a}
+.ftbadge.gltf  {background:rgba(148,109,215,.18);color:#b083f0}
+.ftbadge.unknown{background:#30363d;color:#768390}
+#emptyState{display:none;flex-direction:column;align-items:center;justify-content:center;
+  height:260px;color:#768390;font-size:14px;gap:12px;grid-column:1/-1}
+#emptyState svg{opacity:.3}
+
+/* ── MANAGE MODAL ── */
+#manageWrap{position:fixed;inset:0;z-index:100;background:rgba(2,4,8,.8);
+  display:none;align-items:center;justify-content:center}
+#manageWrap.show{display:flex}
+#manageCard{background:#161b22;border:1px solid #30363d;border-radius:14px;
+  padding:22px;width:min(94vw,520px);max-height:88vh;overflow-y:auto;box-shadow:0 12px 50px rgba(0,0,0,.6)}
+#manageCard h2{font-size:16px;margin-bottom:16px}
+.mrow{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.mrow label{font-size:11px;color:#768390;text-transform:uppercase;letter-spacing:.4px}
+.mrow input[type=text]{padding:8px 10px;background:#1b212a;border:1px solid #30363d;
+  border-radius:7px;color:#e6edf3;font-size:13px;outline:none}
+.mrow input[type=text]:focus{border-color:#539bf5}
+.mfile-zone{border:1px dashed #3d444d;border-radius:8px;padding:22px;text-align:center;
+  font-size:13px;color:#adbac7;cursor:pointer;position:relative;transition:border-color .15s}
+.mfile-zone:hover,.mfile-zone.drag{border-color:#539bf5;background:rgba(83,155,245,.06)}
+.mfile-zone.has{border-style:solid;border-color:#347d39;color:#7ee787}
+.mfile-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+#mStatus{font-size:12px;margin-top:8px;min-height:14px;color:#8b949e}
+#mStatus.err{color:#ff7b72} #mStatus.ok{color:#57ab5a}
+.mbtns{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.mbtns button{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600}
+#mAddBtn{background:#238636;color:#fff} #mAddBtn:disabled{background:#30363d;color:#768390;cursor:not-allowed}
+#mCancelBtn{background:#30363d;color:#e6edf3}
+
+/* ── PAGE 2 — VIEWER ── */
+#topbar{flex:0 0 48px;display:flex;align-items:center;gap:10px;padding:0 16px;
+  background:rgba(22,27,34,.97);border-bottom:1px solid #30363d;z-index:20}
+#backBtn{padding:5px 10px;font-size:12px;cursor:pointer;background:#1b212a;
+  border:1px solid #30363d;color:#adbac7;border-radius:6px}
+#backBtn:hover{border-color:#539bf5;color:#e6edf3}
+#ptinfo{font-size:13px;color:#adbac7;min-width:0;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;margin-right:auto}
+#ptinfo b{color:#e6edf3} #ptinfo span{color:#768390;font-size:11px;margin-left:8px}
+.tbtn{padding:5px 11px;font-size:12px;cursor:pointer;background:#1b212a;
+  border:1px solid #30363d;color:#adbac7;border-radius:6px;white-space:nowrap}
+.tbtn:hover{border-color:#539bf5;color:#e6edf3}
+.tbtn.on{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.tsep{width:1px;height:24px;background:#30363d;flex:0 0 1px}
+#viewerBody{flex:1;min-height:0;position:relative}
+#c3d{position:absolute;inset:0}
+#multiview{position:absolute;inset:0;display:none;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+#multiview.show{display:grid}
+.mvpane{position:relative;overflow:hidden;border:1px solid #21262d}
+.mvlabel{position:absolute;top:6px;left:10px;font-size:11px;color:#768390;
+  pointer-events:none;z-index:2;letter-spacing:.5px;text-transform:uppercase}
+.panel{position:absolute;z-index:10;background:rgba(22,27,34,.92);backdrop-filter:blur(8px);
+  border:1px solid #30363d;border-radius:12px;padding:14px 16px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+#left{top:14px;left:14px;width:256px;max-height:calc(100% - 28px);overflow-y:auto}
+#left h1{font-size:14px;margin-bottom:8px}
+#vStatus{font-size:12px;min-height:14px;color:#8b949e;margin-bottom:6px}
+#vStatus.err{color:#ff7b72} #vStatus.ok{color:#57ab5a}
+#legend{font-size:12px}
+#legend .legtitle{font-size:11px;color:#768390;text-transform:uppercase;letter-spacing:.4px;margin:4px 0 6px}
+.legrow{display:flex;align-items:center;gap:6px;margin:5px 0}
+.toggle{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:6px 8px;
+  background:#1b212a;border:1px solid #30363d;border-radius:7px;color:#e6edf3;
+  font-size:12px;cursor:pointer;text-align:left}
+.toggle .sw{width:11px;height:11px;border-radius:2px;flex:0 0 auto}
+.toggle .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toggle:not(.on){opacity:.42;text-decoration:line-through}
+.posrow{display:flex;align-items:center;gap:6px;margin:4px 0}
+.posrow label{width:14px;font-size:11px;color:#adbac7;flex:0 0 auto}
+.posrow input{flex:1}
+.posrow span{width:32px;text-align:right;font-size:11px;color:#8b949e;font-variant-numeric:tabular-nums}
+#trackPanel{position:absolute;top:8px;right:8px;width:270px;max-height:calc(100% - 20px);
+  overflow-y:auto;background:rgba(22,27,34,.97);border:1px solid #30363d;
+  border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:none;z-index:25}
+#trackPanel.show{display:block}
+#trackPanel .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+#trackPanel .hd h3{font-size:13px}
+#trackClose{cursor:pointer;background:#30363d;border:none;color:#e6edf3;border-radius:6px;padding:3px 9px;font-size:13px}
+.trow{display:flex;align-items:center;gap:8px;padding:7px 8px;background:#1b212a;
+  border:1px solid #30363d;border-radius:7px;margin-bottom:5px}
+.trow .tsw{width:11px;height:11px;border-radius:2px;flex:0 0 auto}
+.trow .tname{flex:1;font-size:12px}
+.trow .trank{font-size:11px;color:#768390;min-width:22px;text-align:center}
+.tarrows{display:flex;flex-direction:column;gap:2px}
+.tarrow{background:#30363d;border:none;color:#adbac7;border-radius:4px;cursor:pointer;
+  padding:2px 6px;font-size:11px;line-height:1.3}
+.tarrow:hover{background:#539bf5;color:#fff}
+.tarrow:disabled{opacity:.3;cursor:default}
+/* slice viewer — docked right-side split, part of the layout (not a popup) */
+#c3d{position:absolute;top:0;bottom:0;left:0;right:0;transition:right .15s}
+#viewerBody.slices #c3d{right:36%}
+#slicePanel{position:absolute;top:0;right:0;width:36%;height:100%;
+  background:#0d1117;border-left:1px solid #30363d;
+  display:none;flex-direction:column;z-index:20;overflow:hidden}
+#viewerBody.slices #slicePanel{display:flex}
+#slicePanel .hd{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
+  padding:8px 12px;border-bottom:1px solid #30363d}
+#slicePanel .hd h3{font-size:13px;color:#adbac7}
+#sliceClose{cursor:pointer;background:#30363d;border:none;color:#e6edf3;border-radius:5px;padding:2px 8px;font-size:13px}
+#sliceCanvasBox{flex:1;display:flex;justify-content:center;align-items:center;background:#000;overflow:hidden}
+#sliceCanvas{image-rendering:pixelated}
+#sliceControls{flex:0 0 auto;padding:8px 12px;border-top:1px solid #30363d}
+.axisbtns{display:flex;gap:6px;margin-bottom:8px}
+.axisbtns button{flex:1;padding:5px;cursor:pointer;background:#1b212a;border:1px solid #30363d;
+  color:#adbac7;border-radius:6px;font-size:11px}
+.axisbtns button.on{background:#1f6feb;border-color:#1f6feb;color:#fff}
+#sliceRow{display:flex;align-items:center;gap:8px}
+#sliceRow input{flex:1}
+#sliceInfo{font-size:11px;color:#8b949e;min-width:100px;text-align:right;font-variant-numeric:tabular-nums}
+#loadingOverlay{position:absolute;inset:0;background:rgba(13,17,23,.85);z-index:50;
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#loadingOverlay.show{display:flex}
+#loadingOverlay p{font-size:14px;color:#adbac7}
+.spinner{width:36px;height:36px;border:3px solid #30363d;border-top-color:#539bf5;
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 -->
+<div id="page1" class="page active">
+  <div id="p1header">
+    <h1>SmartHer <span>MRI</span></h1>
+    <button class="hbtn sec" id="manageBtn">&#43; Manage patients</button>
+  </div>
+  <div id="p1toolbar">
+    <input id="searchBox" placeholder="Search patients…" type="text"/>
+  </div>
+  <div id="p1list">
+    <div id="emptyState">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>No patients yet. Click <b>Manage patients</b> to add one.</span>
+    </div>
+  </div>
+</div>
+
+<!-- manage modal -->
+<div id="manageWrap">
+  <div id="manageCard">
+    <h2>Add patient</h2>
+    <div class="mrow"><label>Patient name</label><input id="mName" type="text" placeholder="e.g. Jane Doe"/></div>
+    <div class="mrow">
+      <label>Scan file — NIfTI (.nii/.nii.gz), DICOM zip (.zip), or 3D model (.gltf/.glb)</label>
+      <div class="mfile-zone" id="mFileZone">Click or drag &amp; drop a file here
+        <input id="mFileInput" type="file" accept=".nii,.nii.gz,.zip,.gltf,.glb"/></div>
+    </div>
+    <div id="mStatus"></div>
+    <div class="mbtns">
+      <button id="mCancelBtn">Cancel</button>
+      <button id="mAddBtn" disabled>Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2 -->
+<div id="page2" class="page">
+  <div id="topbar">
+    <button id="backBtn">&#8592; Patients</button>
+    <div class="tsep"></div>
+    <div id="ptinfo">—</div>
+    <button class="tbtn" id="btnAx">Axial</button>
+    <button class="tbtn" id="btnSag">Sagittal</button>
+    <button class="tbtn" id="btnCor">Coronal</button>
+    <div class="tsep"></div>
+    <button class="tbtn" id="btnMulti">Multi-view</button>
+    <button class="tbtn" id="btnSlice">MRI slices</button>
+    <button class="tbtn" id="btnTrack">Tracking</button>
+    <div class="tsep"></div>
+    <button class="tbtn" id="btnSplit" title="Split fibroids on/off">Split: OFF</button>
+    <input id="splitLevel" type="range" min="1" max="2" step="1" value="2"
+           title="Number of fibroid groups" style="width:90px;vertical-align:middle">
+    <span id="splitInfo" style="font-size:11px;color:#768390;min-width:54px"></span>
+    <div class="tsep"></div>
+    <button class="tbtn" id="btnZoomIn" title="Zoom in">&#128269;+</button>
+    <button class="tbtn" id="btnZoomOut" title="Zoom out">&#128269;&minus;</button>
+  </div>
+  <div id="viewerBody">
+    <div id="c3d"></div>
+    <div id="multiview">
+      <div class="mvpane" id="paneAxial"><div class="mvlabel">Axial</div></div>
+      <div class="mvpane" id="paneSag"><div class="mvlabel">Sagittal</div></div>
+      <div class="mvpane" id="paneCor"><div class="mvlabel">Coronal</div></div>
+      <div class="mvpane" id="pane3D"><div class="mvlabel">3D Bird's-eye</div></div>
+    </div>
+    <div id="left" class="panel">
+      <h1 id="viewerTitle">Segmentation</h1>
+      <div id="vStatus"></div>
+      <div id="legend"></div>
+      <button id="posPanelToggle" style="display:none">⚙ Transform &amp; Scale ▸</button>
+      <div id="posPanel" style="display:none">
+        <div class="legtitle" style="margin-top:12px">Uterus position in body</div>
+        <div class="posrow"><label>X</label><input type="range" id="posX" min="-1" max="1" step="0.01" value="0"><span id="posXv">0</span></div>
+        <div class="posrow"><label>Y</label><input type="range" id="posY" min="-1" max="1" step="0.01" value="0"><span id="posYv">0</span></div>
+        <div class="posrow"><label>Z</label><input type="range" id="posZ" min="-1" max="1" step="0.01" value="0"><span id="posZv">0</span></div>
+        <button id="posReset" style="margin-top:6px;width:100%;padding:4px;background:#30363d;color:#e6edf3;border:none;border-radius:5px;cursor:pointer;font-size:11px">Reset position</button>
+        <div class="legtitle" style="margin-top:12px">Uterus scale</div>
+        <div class="posrow"><label>X</label><input type="range" id="scaX" min="0.1" max="10" step="0.05" value="4"><span id="scaXv">4.00</span></div>
+        <div class="posrow"><label>Y</label><input type="range" id="scaY" min="0.1" max="5" step="0.05" value="0.5"><span id="scaYv">0.50</span></div>
+        <div class="posrow"><label>Z</label><input type="range" id="scaZ" min="0.1" max="5" step="0.05" value="0.7"><span id="scaZv">0.70</span></div>
+        <button id="scaReset" style="margin-top:6px;width:100%;padding:4px;background:#30363d;color:#e6edf3;border:none;border-radius:5px;cursor:pointer;font-size:11px">Reset scale</button>
+        <div class="legtitle" style="margin-top:12px">Body scale</div>
+        <div class="posrow"><label>X</label><input type="range" id="bodScaX" min="0.1" max="5" step="0.05" value="1"><span id="bodScaXv">1.00</span></div>
+        <div class="posrow"><label>Y</label><input type="range" id="bodScaY" min="0.1" max="5" step="0.05" value="1"><span id="bodScaYv">1.00</span></div>
+        <div class="posrow"><label>Z</label><input type="range" id="bodScaZ" min="0.1" max="5" step="0.05" value="1"><span id="bodScaZv">1.00</span></div>
+        <button id="bodScaReset" style="margin-top:6px;width:100%;padding:4px;background:#30363d;color:#e6edf3;border:none;border-radius:5px;cursor:pointer;font-size:11px">Reset body scale</button>
+      </div>
+    </div>
+    <div id="trackPanel">
+      <div class="hd"><h3>Fibroid tracking</h3><button id="trackClose">&#10005;</button></div>
+      <div id="trackList"></div>
+    </div>
+    <div id="slicePanel">
+      <div class="hd">
+        <h3>MRI slices</h3>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button id="btnOverlay" class="tbtn" style="font-size:11px;padding:3px 8px" title="Toggle segmentation overlay">Mask: OFF</button>
+          <button id="sliceClose">&#10005;</button>
+        </div>
+      </div>
+      <div id="sliceCanvasBox"><canvas id="sliceCanvas"></canvas></div>
+      <div id="sliceControls">
+        <div class="axisbtns">
+          <button data-axis="0">Ax1</button>
+          <button data-axis="1">Ax2</button>
+          <button data-axis="2">Ax3</button>
+        </div>
+        <div id="sliceRow">
+          <input id="sliceSlider" type="range" min="0" max="0" step="1" value="0">
+          <span id="sliceInfo">&mdash;</span>
+        </div>
+      </div>
+    </div>
+    <div id="loadingOverlay">
+      <div class="spinner"></div>
+      <p id="loadingMsg">Loading…</p>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const BACKEND_URL = 'https://api.smarthermri.com';
+
+// ═══ PAGE SWITCHING ═══════════════════════════════════════════════════════════
+function showPage(n){
+  document.getElementById('page1').classList.toggle('active',n===1);
+  document.getElementById('page2').classList.toggle('active',n===2);
+  if(n===1) loadPatientList();
+  if(n===2) setTimeout(resizeAll,60);
+}
+document.getElementById('backBtn').addEventListener('click',()=>showPage(1));
+
+// ═══ PAGE 1 ═══════════════════════════════════════════════════════════════════
+async function loadPatientList(){
+  try{
+    const r=await fetch(`${BACKEND_URL}/patients`);
+    const list=await r.json();
+    renderPatientList(list);
+  }catch(e){
+    renderPatientList([], 'Could not reach backend: '+e.message);
+  }
+}
+
+const FTYPE_LABEL = {nifti:'NIfTI',dicom:'DICOM',gltf:'glTF',unknown:'?'};
+
+function renderPatientList(list=[], err=''){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  const filtered=list.filter(p=>p.name.toLowerCase().includes(q));
+  const el=document.getElementById('p1list');
+  const empty=document.getElementById('emptyState');
+  // restore emptyState to its proper parent if it was moved into p1list
+  if(empty && empty.parentElement===el) document.getElementById('page1').appendChild(empty);
+  if(err){
+    if(empty) empty.style.display='none';
+    el.innerHTML=`<p style="color:#ff7b72;padding:20px">${err}</p>`;
+    return;
+  }
+  if(!list.length){
+    el.innerHTML='';
+    if(empty){ empty.style.display='flex'; el.appendChild(empty); }
+    return;
+  }
+  if(empty) empty.style.display='none';
+  el.innerHTML=filtered.map(p=>{
+    const ft=p.fileType||'unknown';
+    const ftLabel=FTYPE_LABEL[ft]||ft;
+    const segLine = ft==='gltf'
+      ? '3D model (no segmentation)'
+      : (p.labels?.length ? 'Structures: '+p.labels.length : 'Not segmented');
+    return `<div class="pt-card">
+      <div class="ptname">${p.name}<span class="ftbadge ${ft}">${ftLabel}</span></div>
+      <div class="ptmeta">File: ${p.filename}<br>Added: ${new Date(p.addedAt).toLocaleDateString()}<br>${segLine}</div>
+      <div class="ptactions">
+        <button class="loadbtn" data-id="${p.id}">Load visualisation</button>
+        <button class="delbtn" data-id="${p.id}">Delete</button>
+      </div>
+    </div>`;
+  }).join('')||'<p style="color:#768390;padding:20px">No patients match.</p>';
+  el.querySelectorAll('.loadbtn').forEach(b=>b.addEventListener('click',()=>loadPatient(b.dataset.id)));
+  el.querySelectorAll('.delbtn').forEach(b=>b.addEventListener('click',()=>deletePatient(b.dataset.id,list)));
+}
+
+let _cachedList=[];
+document.getElementById('searchBox').addEventListener('input',()=>renderPatientList(_cachedList));
+// patch: cache after fetch
+async function loadPatientListCached(){
+  try{ const r=await fetch(`${BACKEND_URL}/patients`); _cachedList=await r.json(); }
+  catch(e){ _cachedList=[]; }
+  renderPatientList(_cachedList);
+}
+
+async function deletePatient(id, list){
+  if(!confirm('Delete this patient and their data?')) return;
+  await fetch(`${BACKEND_URL}/patients/${id}`,{method:'DELETE'});
+  loadPatientListCached();
+}
+
+async function loadPatient(id){
+  showPage(2);
+  setLoading(true,'Loading segmentation…');
+  setVStatus('');
+  try{
+    const r=await fetch(`${BACKEND_URL}/patients/${id}`);
+    if(!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+    const p=await r.json();
+    document.getElementById('ptinfo').innerHTML=`<b>${p.name}</b><span>${p.filename} &middot; ${new Date(p.addedAt).toLocaleDateString()}</span>`;
+    document.getElementById('viewerTitle').textContent=p.name;
+
+    // separate uterus (and any non-split labels) from individual fibroid pieces
+    uterusMeshes  = p.meshes.filter(m=>!String(m.label).includes('.'));
+    fibroidPieces = p.meshes.filter(m=> String(m.label).includes('.'));
+    segColorMapOrig = p.segColorMap||null;
+    segColorMap     = p.segColorMap||null;
+
+    // configure the split-level slider to the number of fibroid pieces
+    const N=fibroidPieces.length;
+    const slider=document.getElementById('splitLevel');
+    slider.max=Math.max(1,N); slider.value=Math.max(1,N);
+    slider.disabled = true;   // disabled by default since split is OFF
+    splitOn=false;
+    document.getElementById('btnSplit').textContent='Split: OFF';
+    document.getElementById('btnSplit').classList.remove('on');
+
+    // load the scan/overlay first so recolor in applySplit has data
+    if(p.volume) setVolume(p.volume,p.shape,p.spacing,p.segVolume||null,p.segColorMap||null);
+
+    // initial build (reframes camera), then split view
+    buildScene(p.meshes,true);
+    applySplit();
+    // apply default uterus X scale=7 and compute body Z so uterus fits 0.2-0.8
+    applyScaSliders();
+    setVStatus(`${p.meshes.length} structure${p.meshes.length===1?'':'s'} loaded.`,'ok');
+  }catch(e){
+    setVStatus('Error: '+e.message,'err');
+  }finally{ setLoading(false); }
+}
+
+// ═══ MANAGE PATIENTS MODAL ════════════════════════════════════════════════════
+const manageWrap=document.getElementById('manageWrap');
+document.getElementById('manageBtn').addEventListener('click',()=>{manageWrap.classList.add('show');resetManage();});
+document.getElementById('mCancelBtn').addEventListener('click',()=>manageWrap.classList.remove('show'));
+manageWrap.addEventListener('click',e=>{ if(e.target===manageWrap) manageWrap.classList.remove('show'); });
+
+const mFileInput=document.getElementById('mFileInput'), mFileZone=document.getElementById('mFileZone');
+const mAddBtn=document.getElementById('mAddBtn'), mStatus=document.getElementById('mStatus');
+const mName=document.getElementById('mName');
+
+function detectFType(fname){
+  const n=fname.toLowerCase();
+  if(n.endsWith('.nii.gz')||n.endsWith('.nii')) return 'nifti';
+  if(n.endsWith('.zip'))                         return 'dicom';
+  if(n.endsWith('.gltf')||n.endsWith('.glb'))    return 'gltf';
+  return 'unknown';
+}
+
+function resetManage(){
+  mName.value=''; mFileInput.value=''; mFileZone.classList.remove('has');
+  mFileZone.textContent='Click or drag & drop a file here'; mFileZone.appendChild(mFileInput);
+  mAddBtn.disabled=true; mAddBtn.textContent='Upload';
+  mStatus.textContent=''; mStatus.className='';
+}
+const checkReady=()=>{ mAddBtn.disabled=!(mName.value.trim()&&mFileInput.files[0]); };
+mName.addEventListener('input',checkReady);
+
+function onFileSelected(f){
+  if(!f) return;
+  const ft=detectFType(f.name);
+  const icon={nifti:'🧠',dicom:'💿',gltf:'🧊',unknown:'📄'}[ft]||'📄';
+  const label={nifti:'Upload & segment (NIfTI)',dicom:'Upload & segment (DICOM)',
+                gltf:'Upload 3D model (glTF)',unknown:'Upload'}[ft]||'Upload';
+  mFileZone.classList.add('has');
+  mFileZone.textContent=`${icon} ${f.name}`; mFileZone.appendChild(mFileInput);
+  mAddBtn.textContent=label;
+  checkReady();
+}
+mFileInput.addEventListener('change',()=>onFileSelected(mFileInput.files[0]));
+mFileZone.addEventListener('dragover',e=>{e.preventDefault();mFileZone.classList.add('drag')});
+mFileZone.addEventListener('dragleave',()=>mFileZone.classList.remove('drag'));
+mFileZone.addEventListener('drop',e=>{
+  e.preventDefault(); mFileZone.classList.remove('drag');
+  const f=e.dataTransfer.files[0]; if(!f) return;
+  const dt=new DataTransfer(); dt.items.add(f); mFileInput.files=dt.files;
+  onFileSelected(f);
+});
+
+mAddBtn.addEventListener('click',async()=>{
+  const name=mName.value.trim(), file=mFileInput.files[0]; if(!name||!file) return;
+  const ft=detectFType(file.name);
+  const statusMsg = ft==='gltf' ? 'Uploading 3D model…'
+    : ft==='dicom' ? 'Converting DICOM & running nnU-Net…'
+    : 'Uploading & running nnU-Net…';
+  mAddBtn.disabled=true; mStatus.textContent=statusMsg; mStatus.className='';
+  try{
+    const form=new FormData(); form.append('file',file); form.append('patient_name',name);
+    const res=await fetch(`${BACKEND_URL}/segment`,{method:'POST',body:form});
+    if(!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    mStatus.textContent='Done! Patient added.'; mStatus.className='ok';
+    loadPatientListCached();
+    setTimeout(()=>manageWrap.classList.remove('show'),1200);
+  }catch(e){ mStatus.textContent='Error: '+e.message; mStatus.className='err'; mAddBtn.disabled=false; }
+});
+
+// ═══ 3D VIEWER ════════════════════════════════════════════════════════════════
+function makeScene(){ const s=new THREE.Scene(); s.background=new THREE.Color(0x0d1117); return s; }
+function makeLights(s){
+  s.add(new THREE.HemisphereLight(0xffffff,0x202830,1.1));
+  const k=new THREE.DirectionalLight(0xffffff,1.6); k.position.set(1,1,1); s.add(k);
+  const f=new THREE.DirectionalLight(0xffffff,0.6); f.position.set(-1,-.5,-1); s.add(f);
+}
+const mainScene=makeScene(); makeLights(mainScene);
+const mainCam=new THREE.PerspectiveCamera(45,1,0.1,1e6);
+const mainRenderer=new THREE.WebGLRenderer({antialias:true});
+mainRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+document.getElementById('c3d').appendChild(mainRenderer.domElement);
+const mainCtrl=new OrbitControls(mainCam,mainRenderer.domElement); mainCtrl.enableDamping=true;
+const mvDefs=[
+  {id:'paneAxial', pos:[0,0,1],   up:[0,-1,0]},   // matches btnAx
+  {id:'paneSag',   pos:[1,0,0],   up:[0,0,1]},    // matches btnSag
+  {id:'paneCor',   pos:[0,-1,0],  up:[0,0,1]},    // matches btnCor
+  {id:'pane3D',    pos:[1,-1,0],  up:[0,0,1]}];   // matches default 45° view
+const mvViews=mvDefs.map(d=>{
+  const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setClearColor(0x0d1117); document.getElementById(d.id).appendChild(renderer.domElement);
+  const cam=new THREE.PerspectiveCamera(45,1,0.1,1e6);
+  const ctrl=new OrbitControls(cam,renderer.domElement); ctrl.enableDamping=true;
+  return {...d,renderer,cam,ctrl};
+});
+let multiMode=false, root=null;
+const meshByLabel={};
+
+function setLoading(show,msg='Loading…'){
+  const ov=document.getElementById('loadingOverlay');
+  ov.classList.toggle('show',show);
+  document.getElementById('loadingMsg').textContent=msg;
+}
+function setVStatus(m,c=''){ const el=document.getElementById('vStatus'); el.textContent=m; el.className=c; }
+
+function frameCamera(cam,ctrl,r,dir,up){
+  const fov=THREE.MathUtils.degToRad(cam.fov), d=r/Math.sin(fov/2)*1.4;
+  cam.position.copy(dir.clone().normalize().multiplyScalar(d));
+  if(up) cam.up.set(...up);
+  cam.near=d/100; cam.far=d*1000; cam.updateProjectionMatrix();
+  ctrl.target.set(0,0,0); ctrl.maxDistance=d*8; ctrl.update();
+}
+
+let anatomyGroup = null;   // group containing all non-body meshes (translated by sliders)
+let bodyGroup3D  = null;   // group containing the body mesh (scaled by body sliders)
+
+function buildScene(meshes, reframe=true){
+  if(root) mainScene.remove(root);
+  root=new THREE.Group(); for(const k in meshByLabel) delete meshByLabel[k];
+  anatomyGroup = new THREE.Group();
+  const bodyGroup = new THREE.Group();
+  bodyGroup3D = bodyGroup;
+
+  for(const m of meshes){
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(m.positions,3));
+    g.setIndex(m.indices); g.computeVertexNormals();
+    const op=(m.opacity??1);
+    const mat=new THREE.MeshStandardMaterial({color:new THREE.Color(m.color[0],m.color[1],m.color[2]),
+      roughness:0.6,metalness:0,side:THREE.DoubleSide,transparent:true,opacity:op,depthWrite:op>=1});
+    const mesh=new THREE.Mesh(g,mat); mesh.renderOrder=op>=1?0:1;
+    meshByLabel[m.label]=mesh;
+    if(m.label==='body') bodyGroup.add(mesh);
+    else                 anatomyGroup.add(mesh);
+  }
+  root.add(bodyGroup);
+  root.add(anatomyGroup);
+  mainScene.add(root);
+
+  // center on combined bounding box
+  const box=new THREE.Box3().setFromObject(root),c=box.getCenter(new THREE.Vector3());
+  bodyGroup.children.forEach(mm=>mm.geometry.translate(-c.x,-c.y,-c.z));
+  anatomyGroup.children.forEach(mm=>mm.geometry.translate(-c.x,-c.y,-c.z));
+
+  // reset sliders when a new patient loads
+  if(reframe){
+    ['posX','posY','posZ'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=0; });
+    ['posXv','posYv','posZv'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent='0'; });
+
+    // uterus defaults: X=3.5, Y=0.5, Z=0.7
+    if(anatomyGroup){ anatomyGroup.position.set(0,0,0); anatomyGroup.scale.set(4,0.5,0.7); }
+    const scaDefs={scaX:4, scaY:0.5, scaZ:0.7};
+    Object.entries(scaDefs).forEach(([id,v])=>{ const el=document.getElementById(id); if(el) el.value=v; });
+    document.getElementById('scaXv').textContent='4.00';
+    document.getElementById('scaYv').textContent='0.50';
+    document.getElementById('scaZv').textContent='0.70';
+
+    // body defaults: X=1, Y=1, Z=1
+    if(bodyGroup3D) bodyGroup3D.scale.set(1, 1, 1);
+    const bodScaDefs={bodScaX:1, bodScaY:1, bodScaZ:1};
+    Object.entries(bodScaDefs).forEach(([id,v])=>{ const el=document.getElementById(id); if(el) el.value=v; });
+    document.getElementById('bodScaXv').textContent='1.00';
+    document.getElementById('bodScaYv').textContent='1.00';
+    document.getElementById('bodScaZv').textContent='1.00';
+
+    const r=new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).length()/2||1;
+    // default view: sagittal direction rotated 45° toward bird's-eye (between X and Y, no Z tilt)
+    mainCam.up.set(0, 0, 1);
+    frameCamera(mainCam,mainCtrl,r,new THREE.Vector3(1,-1,0));
+    mvViews.forEach(v=>frameCamera(v.cam,v.ctrl,r,new THREE.Vector3(...v.pos),v.up));
+  }
+}
+
+// ─── TRANSFORM PANEL TOGGLE ──────────────────────────────────────────────────
+document.getElementById('posPanelToggle').addEventListener('click',()=>{
+  const p=document.getElementById('posPanel');
+  const btn=document.getElementById('posPanelToggle');
+  const open=p.style.display==='none';
+  p.style.display=open?'block':'none';
+  btn.textContent=open?'⚙ Transform & Scale ▾':'⚙ Transform & Scale ▸';
+});
+
+// ─── UTERUS POSITION SLIDERS ─────────────────────────────────────────────────
+// The sliders move the anatomy group (uterus + fibroids) relative to the body
+// along each world axis. Range ±1 maps to ±half the body bounding-box size.
+function getBodyHalfSize(){
+  if(!bodyGroup3D) return new THREE.Vector3(50,50,50);
+  const box = new THREE.Box3().setFromObject(bodyGroup3D);   // uses actual scaled size
+  return box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+}
+
+function applyPosSliders(){
+  if(!anatomyGroup) return;
+  const half = getBodyHalfSize();
+  const x = parseFloat(document.getElementById('posX').value);
+  const y = parseFloat(document.getElementById('posY').value);
+  const z = parseFloat(document.getElementById('posZ').value);
+  anatomyGroup.position.set(x*half.x, y*half.y, z*half.z);
+  document.getElementById('posXv').textContent = x.toFixed(2);
+  document.getElementById('posYv').textContent = y.toFixed(2);
+  document.getElementById('posZv').textContent = z.toFixed(2);
+}
+
+['posX','posY','posZ'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', applyPosSliders);
+});
+document.getElementById('posReset').addEventListener('click',()=>{
+  ['posX','posY','posZ'].forEach(id=>document.getElementById(id).value=0);
+  applyPosSliders();
+});
+
+// ─── UTERUS SCALE SLIDERS ────────────────────────────────────────────────────
+function applyScaSliders(){
+  if(!anatomyGroup) return;
+  const x = parseFloat(document.getElementById('scaX').value);
+  const y = parseFloat(document.getElementById('scaY').value);
+  const z = parseFloat(document.getElementById('scaZ').value);
+  anatomyGroup.scale.set(x, y, z);
+  document.getElementById('scaXv').textContent = x.toFixed(2);
+  document.getElementById('scaYv').textContent = y.toFixed(2);
+  document.getElementById('scaZv').textContent = z.toFixed(2);
+}
+
+['scaX','scaY','scaZ'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', applyScaSliders);
+});
+document.getElementById('scaReset').addEventListener('click',()=>{
+  document.getElementById('scaX').value=4;
+  document.getElementById('scaY').value=0.5;
+  document.getElementById('scaZ').value=0.7;
+  applyScaSliders();
+});
+
+// ─── BODY SCALE SLIDERS ──────────────────────────────────────────────────────
+function applyBodyScaSliders(){
+  if(!bodyGroup3D) return;
+  const x = parseFloat(document.getElementById('bodScaX').value);
+  const y = parseFloat(document.getElementById('bodScaY').value);
+  const z = parseFloat(document.getElementById('bodScaZ').value);
+  bodyGroup3D.scale.set(x, y, z);
+  document.getElementById('bodScaXv').textContent = x.toFixed(2);
+  document.getElementById('bodScaYv').textContent = y.toFixed(2);
+  document.getElementById('bodScaZv').textContent = z.toFixed(2);
+}
+
+['bodScaX','bodScaY','bodScaZ'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', applyBodyScaSliders);
+});
+document.getElementById('bodScaReset').addEventListener('click',()=>{
+  document.getElementById('bodScaX').value=1;
+  document.getElementById('bodScaY').value=1;
+  document.getElementById('bodScaZ').value=1;
+  applyBodyScaSliders();
+});
+
+// ─── FIBROID SPLIT/MERGE (frontend, instant) ─────────────────────────────────
+// Palette mirrors backend meshing.py so merged groups get distinct colors.
+const FE_PALETTE=[
+  [0.90,0.29,0.29],[0.29,0.59,0.90],[0.37,0.78,0.47],[0.94,0.75,0.27],
+  [0.71,0.43,0.86],[0.27,0.78,0.78],[0.94,0.51,0.71],[0.55,0.80,0.95],
+  [0.98,0.62,0.30],[0.60,0.85,0.55],[0.85,0.55,0.95],[0.63,0.63,0.63]];
+
+let uterusMeshes=[], fibroidPieces=[], splitOn=false, segColorMapOrig=null;
+// state used across split / overlay / tracking (declared early to avoid TDZ)
+let fibroidOrder=[];
+let segVol=null, segColorMap=null, overlayOn=false, overlayAlpha=0.45;
+let hiddenOverlayIds=new Set();   // overlay IDs hidden because their anatomy is hidden
+
+function meshCentroid(m){
+  const p=m.positions; let x=0,y=0,z=0,n=p.length/3;
+  for(let i=0;i<p.length;i+=3){x+=p[i];y+=p[i+1];z+=p[i+2];}
+  return [x/n,y/n,z/n];
+}
+function dist3(a,b){const dx=a[0]-b[0],dy=a[1]-b[1],dz=a[2]-b[2];return Math.sqrt(dx*dx+dy*dy+dz*dz);}
+
+// agglomerative: merge nearest centroids until exactly k groups remain
+function clusterPieces(pieces,k){
+  let groups=pieces.map(p=>({items:[p],cen:meshCentroid(p),
+                             size:p.positions.length}));
+  while(groups.length>k){
+    let bi=0,bj=1,bd=Infinity;
+    for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
+      const d=dist3(groups[i].cen,groups[j].cen);
+      if(d<bd){bd=d;bi=i;bj=j;}
+    }
+    const A=groups[bi],B=groups[bj];
+    const merged={items:A.items.concat(B.items),
+      size:A.size+B.size,
+      cen:[(A.cen[0]*A.size+B.cen[0]*B.size)/(A.size+B.size),
+           (A.cen[1]*A.size+B.cen[1]*B.size)/(A.size+B.size),
+           (A.cen[2]*A.size+B.cen[2]*B.size)/(A.size+B.size)]};
+    groups.splice(bj,1); groups.splice(bi,1); groups.push(merged);
+  }
+  // largest group first for stable naming
+  groups.sort((a,b)=>b.size-a.size);
+  return groups;
+}
+
+// concatenate several mesh dicts into one (shared color)
+function mergeMeshDicts(items,label,name,color){
+  const positions=[]; const indices=[]; let off=0;
+  for(const m of items){
+    for(const v of m.positions) positions.push(v);
+    for(const idx of m.indices) indices.push(idx+off);
+    off += m.positions.length/3;
+  }
+  return {label,name,color,opacity:1.0,positions,indices};
+}
+
+// build the grouped fibroid meshes for the current split level, rebuild scene,
+// legend, tracking, and recolor the MRI overlay to match.
+function applySplit(){
+  const N=fibroidPieces.length;
+  const slider=document.getElementById('splitLevel');
+  let k = splitOn ? parseInt(slider.value) : N;
+  k=Math.max(1,Math.min(N||1,k));
+
+  let grouped=[];
+  // map each ORIGINAL piece color → its group color (for the MRI overlay)
+  const colorRemap=[];   // [[origColor],[newColor]]
+  if(N===0){
+    grouped=[];
+  } else {
+    const groups=clusterPieces(fibroidPieces,k);
+    groups.forEach((g,i)=>{
+      const color=FE_PALETTE[i%FE_PALETTE.length];
+      const name = (k===1) ? 'Fibroids (merged)' : `Fibroid ${i+1}`;
+      grouped.push(mergeMeshDicts(g.items,`fg.${i}`,name,color));
+      for(const piece of g.items) colorRemap.push([piece.color,color]);
+    });
+  }
+  const meshes=uterusMeshes.concat(grouped);
+  hiddenOverlayIds.clear();               // regroup -> all anatomies visible again
+  buildScene(meshes,false);              // keep camera
+  // re-apply current transform/scale values (buildScene creates fresh groups)
+  applyPosSliders();
+  applyScaSliders();
+  applyBodyScaSliders();
+  showLegend(meshes);
+  fibroidOrder=grouped.map(m=>({label:m.label,name:m.name,color:m.color}));
+  if(document.getElementById('trackPanel').classList.contains('show')) renderTrackList();
+
+  // recolor MRI overlay so slices match the 3D grouping
+  recolorOverlay(colorRemap);
+  document.getElementById('splitInfo').textContent =
+    N===0 ? '' : (splitOn ? `${k} / ${N}` : `${N} / ${N}`);
+}
+
+function recolorOverlay(colorRemap){
+  if(!segColorMapOrig){ return; }
+  // segColorMapOrig: [[id,r,g,b],...]; remap fibroid colors, keep uterus as-is
+  const to255=c=>Math.round(c*255);
+  const near=(a,b)=>Math.abs(a-b)<=1;
+  segColorMap = segColorMapOrig.map(([id,r,g,b])=>{
+    for(const [oc,nc] of colorRemap){
+      if(near(to255(oc[0]),r) && near(to255(oc[1]),g) && near(to255(oc[2]),b))
+        return [id,to255(nc[0]),to255(nc[1]),to255(nc[2])];
+    }
+    return [id,r,g,b];
+  });
+  if(typeof drawSlice==='function') drawSlice();
+}
+
+// hide/show an anatomy in the MRI overlay to match its 3D show/hide toggle.
+// matches the mesh's CURRENT color against the (possibly recolored) segColorMap.
+// uses a small tolerance so JS/Python rounding differences never break the match.
+function syncOverlayVisibility(label, visible){
+  if(!segColorMap){ return; }
+  const mm=meshByLabel[label]; if(!mm) return;
+  const c=mm.material.color;
+  const r=Math.round(c.r*255), g=Math.round(c.g*255), b=Math.round(c.b*255);
+  for(const [id,rr,gg,bb] of segColorMap){
+    if(Math.abs(rr-r)<=1 && Math.abs(gg-g)<=1 && Math.abs(bb-b)<=1){
+      if(visible) hiddenOverlayIds.delete(id); else hiddenOverlayIds.add(id);
+    }
+  }
+  if(typeof drawSlice==='function') drawSlice();
+}
+
+function showLegend(meshes){
+  const el=document.getElementById('legend');
+  let html='<div class="legtitle">Show / hide &middot; opacity</div>';
+  for(const m of meshes){
+    const col=`rgb(${m.color.map(c=>Math.round(c*255)).join(',')})`;
+    const op=(m.opacity??1);
+    html+=`<div class="legrow">
+      <button class="toggle on" data-label="${m.label}"><span class="sw" style="background:${col}"></span><span class="nm">${m.name}</span></button>
+      <input class="opac" type="range" min="0" max="1" step="0.05" value="${op}" data-label="${m.label}" title="Opacity">
+    </div>`;
+  }
+  el.innerHTML=html;
+  el.querySelectorAll('.toggle').forEach(btn=>btn.addEventListener('click',()=>{
+    const on=btn.classList.toggle('on');
+    const lbl=btn.dataset.label;
+    const mm=meshByLabel[lbl]; if(mm) mm.visible=on;
+    // also hide/show this anatomy in the MRI slice overlay
+    syncOverlayVisibility(lbl,on);
+  }));
+  el.querySelectorAll('.opac').forEach(sl=>sl.addEventListener('input',()=>{
+    const mm=meshByLabel[sl.dataset.label]; if(!mm) return;
+    const v=parseFloat(sl.value);
+    mm.material.opacity=v; mm.material.transparent=true;
+    mm.material.depthWrite=v>=1; mm.renderOrder=v>=1?0:1; mm.material.needsUpdate=true;
+  }));
+}
+
+// ── split toggle + level slider ──────────────────────────────────────────────
+document.getElementById('btnSplit').addEventListener('click',()=>{
+  splitOn=!splitOn;
+  document.getElementById('btnSplit').textContent= splitOn?'Split: ON':'Split: OFF';
+  document.getElementById('btnSplit').classList.toggle('on',splitOn);
+  document.getElementById('splitLevel').disabled = !splitOn || fibroidPieces.length<2;
+  applySplit();
+});
+document.getElementById('splitLevel').addEventListener('input',()=>{
+  if(!splitOn){ splitOn=true; document.getElementById('btnSplit').textContent='Split: ON';
+    document.getElementById('btnSplit').classList.add('on'); }
+  applySplit();
+});
+
+function goView(posArr,upArr,btnId){
+  if(!root) return;
+  const r=new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).length()/2||1;
+  const d=r/Math.sin(THREE.MathUtils.degToRad(mainCam.fov)/2)*1.4;
+  mainCam.position.copy(new THREE.Vector3(...posArr).normalize().multiplyScalar(d));
+  mainCam.up.set(...upArr); mainCam.lookAt(0,0,0); mainCtrl.target.set(0,0,0); mainCtrl.update();
+  ['btnAx','btnSag','btnCor'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  document.getElementById(btnId).classList.add('on');
+}
+document.getElementById('btnAx').addEventListener('click',()=>goView([0,0,1],[0,-1,0],'btnAx'));   // unchanged
+document.getElementById('btnSag').addEventListener('click',()=>goView([1,0,0],[0,0,1],'btnSag'));  // 180° from CW
+document.getElementById('btnCor').addEventListener('click',()=>goView([0,-1,0],[0,0,1],'btnCor'));  // 180° front→back
+
+const c3d=document.getElementById('c3d'), mvEl=document.getElementById('multiview');
+document.getElementById('btnMulti').addEventListener('click',()=>{
+  multiMode=!multiMode; mvEl.classList.toggle('show',multiMode);
+  c3d.style.visibility=multiMode?'hidden':'visible';
+  document.getElementById('btnMulti').classList.toggle('on',multiMode); resizeAll();
+});
+
+function resizeAll(){
+  const W=c3d.clientWidth, H=c3d.clientHeight;
+  if(!multiMode){ mainRenderer.setSize(W,H); mainCam.aspect=(W/H)||1; mainCam.updateProjectionMatrix(); }
+  else{ const body=document.getElementById('viewerBody'); const hw=Math.floor(body.clientWidth/2),hh=Math.floor(body.clientHeight/2);
+    mvViews.forEach(v=>{ v.renderer.setSize(hw,hh); v.cam.aspect=hw/hh; v.cam.updateProjectionMatrix(); }); }
+}
+new ResizeObserver(resizeAll).observe(document.getElementById('viewerBody'));
+
+(function loop(){ requestAnimationFrame(loop);
+  if(!multiMode){ mainCtrl.update(); mainRenderer.render(mainScene,mainCam); }
+  else mvViews.forEach(v=>{ v.ctrl.update(); v.renderer.render(mainScene,v.cam); });
+})();
+
+// fixed X display scale (was the old "Scale axes" X default); panel removed
+const DEFAULT_SCALE_X = 1;
+
+// ─── ZOOM (buttons + scroll already works + double-click to focus a part) ─────
+function zoomBy(factor){
+  const t=mainCtrl.target;
+  mainCam.position.sub(t).multiplyScalar(factor).add(t);
+  mainCtrl.update();
+}
+document.getElementById('btnZoomIn').addEventListener('click',()=>zoomBy(0.7));
+document.getElementById('btnZoomOut').addEventListener('click',()=>zoomBy(1/0.7));
+
+// double-click anywhere on the model to recenter + zoom into that part
+const _ray=new THREE.Raycaster(), _ndc=new THREE.Vector2();
+mainRenderer.domElement.addEventListener('dblclick',e=>{
+  if(!root) return;
+  const rect=mainRenderer.domElement.getBoundingClientRect();
+  _ndc.x=((e.clientX-rect.left)/rect.width)*2-1;
+  _ndc.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  _ray.setFromCamera(_ndc,mainCam);
+  const hit=_ray.intersectObjects(root.children,false)[0];
+  if(hit){ mainCtrl.target.copy(hit.point); zoomBy(0.6); }
+});
+
+
+function renderTrackList(){
+  const el=document.getElementById('trackList');
+  if(!fibroidOrder.length){ el.innerHTML='<p style="color:#768390;font-size:12px">No fibroids.</p>'; return; }
+  el.innerHTML=fibroidOrder.map((f,i)=>{
+    const col=`rgb(${f.color.map(c=>Math.round(c*255)).join(',')})`;
+    return `<div class="trow" data-label="${f.label}">
+      <span class="tsw" style="background:${col}"></span>
+      <span class="tname">${f.name}</span><span class="trank">#${i+1}</span>
+      <div class="tarrows">
+        <button class="tarrow up" ${i===0?'disabled':''}>&#9650;</button>
+        <button class="tarrow dn" ${i===fibroidOrder.length-1?'disabled':''}>&#9660;</button>
+      </div></div>`;
+  }).join('');
+  el.querySelectorAll('.tarrow.up').forEach(b=>b.addEventListener('click',e=>{
+    const r=e.target.closest('.trow'),idx=fibroidOrder.findIndex(f=>String(f.label)===r.dataset.label);
+    if(idx>0){[fibroidOrder[idx-1],fibroidOrder[idx]]=[fibroidOrder[idx],fibroidOrder[idx-1]];}renderTrackList();
+  }));
+  el.querySelectorAll('.tarrow.dn').forEach(b=>b.addEventListener('click',e=>{
+    const r=e.target.closest('.trow'),idx=fibroidOrder.findIndex(f=>String(f.label)===r.dataset.label);
+    if(idx<fibroidOrder.length-1){[fibroidOrder[idx],fibroidOrder[idx+1]]=[fibroidOrder[idx+1],fibroidOrder[idx]];}renderTrackList();
+  }));
+}
+document.getElementById('btnTrack').addEventListener('click',()=>{
+  const p=document.getElementById('trackPanel'),open=p.classList.toggle('show');
+  document.getElementById('btnTrack').classList.toggle('on',open); if(open) renderTrackList();
+});
+document.getElementById('trackClose').addEventListener('click',()=>{
+  document.getElementById('trackPanel').classList.remove('show');
+  document.getElementById('btnTrack').classList.remove('on');
+});
+
+let vol=null,volShape=null,volSpacing=null,sliceAxis=0,sliceIdx=0;
+
+
+function setVolume(b64,shape,spacing,segB64,colorMap){
+  const bin=atob(b64),arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  vol=arr; volShape=shape; volSpacing=spacing||[1,1,1];
+  sliceAxis=shape.indexOf(Math.min(...shape));
+
+  // decode segmentation overlay if provided
+  segVol=null; segColorMap=null;
+  if(segB64 && colorMap && colorMap.length){
+    const sb=atob(segB64), sa=new Uint8Array(sb.length);
+    for(let i=0;i<sb.length;i++) sa[i]=sb.charCodeAt(i);
+    // only use if same voxel count as scan
+    if(sa.length===arr.length){ segVol=sa; segColorMap=colorMap; }
+  }
+
+  // update overlay button visibility
+  const btn=document.getElementById('btnOverlay');
+  if(btn){ btn.style.display=segVol?'':'none'; }
+}
+
+function drawSlice(){
+  if(!vol) return;
+  const dims=volShape,strides=[dims[1]*dims[2],dims[2],1];
+  const a=sliceAxis,others=[0,1,2].filter(d=>d!==a);
+  const w=dims[others[0]],h=dims[others[1]];
+  const canvas=document.getElementById('sliceCanvas');
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext('2d'),img=ctx.createImageData(w,h);
+  const base=sliceIdx*strides[a],s0=strides[others[0]],s1=strides[others[1]];
+
+  // build label→color lookup (label int → [r,g,b])
+  const colorLut={};
+  if(segVol && segColorMap && overlayOn){
+    for(const [lab,r,g,b] of segColorMap) colorLut[lab]=[r,g,b];
+  }
+
+  // uterus grey base color (for all foreground voxels in pass 1)
+  let uterusCol=null, uterusShown=false;
+  if(segVol && segColorMap && overlayOn){
+    const um=meshByLabel["1"] || meshByLabel[1];
+    if(um){
+      const c=um.material.color;
+      const ur=Math.round(c.r*255),ug=Math.round(c.g*255),ub=Math.round(c.b*255);
+      const near=(a,b)=>Math.abs(a-b)<=1;
+      for(const [id,r,g,b] of segColorMap){
+        if(near(r,ur)&&near(g,ug)&&near(b,ub)){
+          uterusCol=[r,g,b];
+          if(!hiddenOverlayIds.has(id)) uterusShown=true;
+        }
+      }
+      uterusShown = uterusShown && um.visible;
+    }
+  }
+
+  const fibAlpha = Math.min(1.0, overlayAlpha * 1.8);   // fibroids drawn at higher opacity
+
+  for(let j=0;j<h;j++){
+    for(let i=0;i<w;i++){
+      const vi=base+i*s0+j*s1;
+      const gv=vol[vi];
+      const o=((h-1-j)*w+(w-1-i))*4;
+
+      if(segVol && overlayOn && segVol[vi]!==0){
+        const lab=segVol[vi];
+
+        // PASS 1: uterus grey covers all foreground (uterus + fibroids)
+        let base_r=gv, base_g=gv, base_b=gv;
+        if(uterusShown && uterusCol){
+          base_r=Math.round(uterusCol[0]*overlayAlpha + gv*(1-overlayAlpha));
+          base_g=Math.round(uterusCol[1]*overlayAlpha + gv*(1-overlayAlpha));
+          base_b=Math.round(uterusCol[2]*overlayAlpha + gv*(1-overlayAlpha));
+        }
+
+        // PASS 2: fibroid color on top at higher opacity (if visible & not hidden)
+        const fibCol=colorLut[lab];
+        const isFibroid = fibCol && !hiddenOverlayIds.has(lab) &&
+                          !(uterusCol && Math.abs(fibCol[0]-uterusCol[0])<=1 &&
+                            Math.abs(fibCol[1]-uterusCol[1])<=1 &&
+                            Math.abs(fibCol[2]-uterusCol[2])<=1);
+        if(isFibroid){
+          img.data[o]  =Math.round(fibCol[0]*fibAlpha + base_r*(1-fibAlpha));
+          img.data[o+1]=Math.round(fibCol[1]*fibAlpha + base_g*(1-fibAlpha));
+          img.data[o+2]=Math.round(fibCol[2]*fibAlpha + base_b*(1-fibAlpha));
+        } else {
+          img.data[o]=base_r; img.data[o+1]=base_g; img.data[o+2]=base_b;
+        }
+      } else {
+        img.data[o]=gv; img.data[o+1]=gv; img.data[o+2]=gv;
+      }
+      img.data[o+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+  const box=document.getElementById('sliceCanvasBox');
+  const asp0=volSpacing[others[0]]||1,asp1=volSpacing[others[1]]||1;
+  const sc=Math.min((box.clientWidth-4)/(w*asp0),(box.clientHeight-4)/(h*asp1));
+  canvas.style.width=(w*asp0*sc)+'px'; canvas.style.height=(h*asp1*sc)+'px';
+  document.getElementById('sliceInfo').textContent=`ax${a+1} ${sliceIdx+1}/${dims[a]}`;
+}
+
+function setAxis(a){
+  sliceAxis=a; sliceIdx=Math.floor(volShape[a]/2);
+  const sl=document.getElementById('sliceSlider'); sl.max=volShape[a]-1; sl.value=sliceIdx;
+  document.querySelectorAll('.axisbtns button').forEach(b=>b.classList.toggle('on',parseInt(b.dataset.axis)===a));
+  drawSlice();
+}
+
+// overlay toggle button
+document.getElementById('btnOverlay').addEventListener('click',()=>{
+  overlayOn=!overlayOn;
+  document.getElementById('btnOverlay').textContent=overlayOn?'Mask: ON':'Mask: OFF';
+  document.getElementById('btnOverlay').classList.toggle('on',overlayOn);
+  drawSlice();
+});
+// hide by default until a seg is loaded
+document.getElementById('btnOverlay').style.display='none';
+document.getElementById('btnSlice').addEventListener('click',()=>{
+  const body=document.getElementById('viewerBody');
+  const open=body.classList.toggle('slices');
+  document.getElementById('btnSlice').classList.toggle('on',open);
+  resizeAll();                                   // 3D canvas shrinks/expands to fit
+  if(open&&vol) setTimeout(()=>setAxis(sliceAxis),60);
+});
+document.getElementById('sliceClose').addEventListener('click',()=>{
+  document.getElementById('viewerBody').classList.remove('slices');
+  document.getElementById('btnSlice').classList.remove('on');
+  resizeAll();
+});
+document.getElementById('sliceSlider').addEventListener('input',e=>{sliceIdx=parseInt(e.target.value);drawSlice();});
+document.querySelectorAll('.axisbtns button').forEach(b=>b.addEventListener('click',()=>setAxis(parseInt(b.dataset.axis))));
+document.getElementById('sliceCanvasBox').addEventListener('wheel',e=>{
+  if(!volShape) return; e.preventDefault();
+  sliceIdx=Math.min(volShape[sliceAxis]-1,Math.max(0,sliceIdx+(e.deltaY>0?1:-1)));
+  document.getElementById('sliceSlider').value=sliceIdx; drawSlice();
+},{passive:false});
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+loadPatientListCached();
+</script>
+</body>
+</html>

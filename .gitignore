@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+data/nnUNet_results/**/*.pth
+!data/**/.gitkeep

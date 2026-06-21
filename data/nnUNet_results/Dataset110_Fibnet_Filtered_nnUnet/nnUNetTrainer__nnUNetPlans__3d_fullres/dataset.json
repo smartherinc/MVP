@@ -1,0 +1,12 @@
+{
+    "channel_names": {
+        "0": "T2"
+    },
+    "file_ending": ".nii.gz",
+    "labels": {
+        "Fibroid": 2,
+        "Uterus": 1,
+        "background": 0
+    },
+    "numTraining": 260
+}

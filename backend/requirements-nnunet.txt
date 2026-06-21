@@ -1,0 +1,4 @@
+# Needed for MODE=nnunet. Install a matching torch build FIRST, e.g.:
+#   CPU:  pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu121
+nnunetv2

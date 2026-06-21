@@ -1,0 +1,4 @@
+Copy these two files here from your trained nnU-Net model folder:
+    plans.json
+    dataset.json
+(They define the architecture and label names. Required for inference.)
