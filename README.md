@@ -116,6 +116,8 @@ data/nnUNet_results/Dataset110_Fibnet_Filtered_nnUnet/
         └── checkpoint_best.pth
 ```
 
+You can find some checkpoint here: drive.google.com/file/d/1sXCXXa3ONEEKTRiR8G_bQ6R1wO7zWBu4
+
 ### 3. Set nnU-Net Environment Variables
 
 ```bash
