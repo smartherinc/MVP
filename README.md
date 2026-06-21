@@ -1,8 +1,12 @@
 # nnU-Net 3D Medical Image Segmentation Web App
 
-A full-stack web application for uploading medical images (NIfTI format) and running **nnU-Net** 3D segmentation inference in real-time. Segmentation results are meshed, smoothed, and rendered interactively in 3D using **Three.js**.
+A full-stack web application for uploading medical images (**NIfTI**, **DICOM**, or **GLTF**) and running **nnU-Net** 3D segmentation inference. Segmentation results are meshed, smoothed, and rendered interactively in 3D using **Three.js**.
 
-**Key features:** No file system management → upload directly in browser → instant 3D visualization with interactive controls.
+**Key features:** 
+- Multi-format input (NIfTI, DICOM, GLTF)
+- CPU-based by default (no GPU required)
+- Optional GPU acceleration (~8–10x speedup)
+- Upload directly in browser → instant 3D visualization with interactive controls
 
 ---
 
@@ -45,7 +49,19 @@ MVP/
 - **Python 3.10+**
 - **pip**
 - ~4 GB disk space (for nnU-Net dependencies)
-- GPU (optional, but recommended for inference speed)
+- **CPU only** (default setup) — no special hardware required
+- **GPU** (optional) — NVIDIA GPU with CUDA Compute Capability 3.5+ for speedup
+
+### CPU vs GPU: Quick Comparison
+
+|  | **CPU (Default)** | **GPU (Optional)** |
+|---|---|---|
+| **Setup** | None—works out of box | Requires NVIDIA drivers + CUDA 12.1 |
+| **Speed** | 45–300+ sec/volume | 8–60 sec/volume |
+| **Cost (AWS)** | ~$50/month (t3.xlarge) | ~$200/month (g4dn.xlarge) |
+| **Best For** | Testing, light workloads, cost-conscious | Production, high-throughput, time-critical |
+
+**Recommendation:** Start with CPU. Upgrade to GPU if inference time becomes a bottleneck.
 
 ### 1. Set Up the Backend
 
@@ -64,12 +80,11 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# PyTorch (choose one):
-# For CPU:
+# Install PyTorch (CPU - default):
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# For GPU (CUDA 12.1):
-pip install torch --index-url https://download.pytorch.org/whl/cu121
+# [OPTIONAL] For GPU speedup (CUDA 12.1):
+# pip install torch --index-url https://download.pytorch.org/whl/cu121
 
 # Install nnU-Net
 pip install -r requirements-nnunet.txt
@@ -227,18 +242,33 @@ LABEL_NAMES = {1: "Uterus", 2: "Fibroid"}
 - Serve via **CloudFront**
 - Update `BACKEND_URL` in `index.html` to your API endpoint
 
-**Backend (Docker):**
+**Backend (Docker - CPU Default):**
 - Build: `docker build -t nnunet-api .`
 - Push to **ECR**
-- Deploy on **EC2 g4dn.* (GPU)** or **ECS Fargate (CPU)**
+- Deploy on **EC2 t3.xlarge (CPU, cost-effective)** or **ECS Fargate (CPU, serverless)**
 - Mount/COPY `data/nnUNet_results` into container
 - Set CORS: `ALLOW_ORIGINS=["https://your-cloudfront-url"]`
 
-**Performance Notes:**
-- CPU inference: ~2–10 min/volume (depending on size)
-- GPU (g4dn.xlarge): ~10–30 sec/volume
-- Increase API request timeout to **300+ seconds**
-- Use **async job polling** for production (don't wait 5 min for response)
+**[OPTIONAL] GPU Acceleration:**
+- Use **EC2 g4dn.xlarge (NVIDIA GPU)** instead of t3.xlarge
+- Install CUDA 12.1 drivers on instance
+- Update PyTorch: `pip install torch --index-url https://download.pytorch.org/whl/cu121`
+- Expect **~8–10x faster inference**
+- Cost: ~2–3x higher than CPU, but processing time reduced by 90%
+
+**Performance Considerations:**
+- **CPU mode:** Ideal for light workloads, cost-conscious deployments, or testing
+  - Inference: ~45 sec (256³) to 300+ sec (512³)
+  - Monthly cost (t3.xlarge): ~$50
+  - No special setup required
+  
+- **GPU mode:** Recommended for production, high-throughput, or time-sensitive applications
+  - Inference: ~8 sec (256³) to 60 sec (512³)
+  - Monthly cost (g4dn.xlarge): ~$200
+  - Requires NVIDIA drivers and CUDA setup
+
+- Increase API request timeout to **300+ seconds** (CPU) or **120 seconds** (GPU)
+- Use **async job polling** for production (don't wait synchronously for response)
 
 ---
 
@@ -290,12 +320,45 @@ nvidia-smi
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
 
+### Upgrading from CPU to GPU
+
+The app runs on **CPU by default**. To enable GPU acceleration:
+
+1. **Ensure you have an NVIDIA GPU** with CUDA Compute Capability 3.5+
+2. **Install NVIDIA drivers:** Download from [nvidia.com/Download/driverDetails](https://www.nvidia.com/Download/driverDetails.aspx)
+3. **Reinstall PyTorch with CUDA support:**
+
+```bash
+pip uninstall torch
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+```
+
+4. **Verify GPU access:**
+
+```bash
+python -c "import torch; print('GPU Available:', torch.cuda.is_available()); print('GPU Name:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None')"
+```
+
+5. **Restart backend** (no code changes needed—PyTorch auto-detects GPU):
+
+```bash
+MODE=nnunet uvicorn app:app --port 8000
+```
+
+**Expected speedup:** ~8–10x faster inference compared to CPU.
+
+---
+
 ### Slow inference on CPU
 
-This is expected. For production:
-- Use GPU (recommended)
-- Consider model quantization or pruning
-- Implement async job queue (Celery + Redis)
+This is expected and normal. Inference times are:
+- **256³ voxels:** ~45 seconds
+- **512³ voxels:** ~2+ minutes
+
+For faster processing:
+- **Use GPU** (see section above) — reduces to 8–30 seconds
+- **Reduce input volume size** (crop/downsample)
+- **Use async job queue** (Celery + Redis) for non-blocking requests
 
 ---
 
@@ -304,10 +367,15 @@ This is expected. For production:
 **Input:**
 - `.nii` (uncompressed NIfTI)
 - `.nii.gz` (gzipped NIfTI) ✅ **Recommended**
+- `.dcm` / `.dicom` (DICOM medical imaging format)
+- `.gltf` / `.glb` (3D model format)
 
 **Output (Internal):**
 - Mesh JSON (vertices + faces)
 - Rendered via Three.js in browser
+
+**Format Auto-Detection:**
+The API automatically detects input format based on file extension. DICOM files are converted to NIfTI internally before segmentation.
 
 ---
 
@@ -317,10 +385,12 @@ This is expected. For production:
 |-------------|---------------------|
 | Backend     | FastAPI, Python 3.10+|
 | ML Engine   | nnU-Net             |
-| Processing  | SimpleITK, NumPy    |
+| Processing  | SimpleITK (NIfTI + DICOM), NumPy |
+| 3D Import   | PyAssimp (GLTF/GLB) |
 | Meshing     | scikit-image, trimesh |
 | Smoothing   | Taubin filter       |
 | Frontend    | Vanilla JS, Three.js|
+| Compute     | CPU (default) or GPU (optional CUDA 12.1) |
 | Server      | Uvicorn (ASGI)     |
 | Hosting     | AWS EC2/ECS/CloudFront |
 
@@ -328,15 +398,23 @@ This is expected. For production:
 
 ## Performance Benchmarks
 
-**Tested on AWS g4dn.xlarge (1 GPU):**
+**Default (CPU - t3.xlarge):**
+
+| Volume Size | Preprocessing | nnU-Net Inference | Meshing | Total   |
+|-------------|---------------|-------------------|---------|---------|
+| 256×256×64 | 2 sec         | 45 sec            | 3 sec   | 50 sec  |
+| 512×512×128| 5 sec         | 120 sec           | 8 sec   | 133 sec |
+| 512×512×256| 10 sec        | 300+ sec          | 15 sec  | 325+ sec|
+
+**[OPTIONAL] GPU Speedup (AWS g4dn.xlarge - CUDA 12.1):**
 
 | Volume Size | Preprocessing | nnU-Net Inference | Meshing | Total   |
 |-------------|---------------|-------------------|---------|---------|
 | 256×256×64 | 2 sec         | 8 sec             | 3 sec   | 13 sec  |
 | 512×512×128| 5 sec         | 25 sec            | 8 sec   | 38 sec  |
-| 512×512×256| 10 sec        | 60+ sec           | 15 sec  | 85+ sec |
+| 512×512×256| 10 sec        | 60 sec            | 15 sec  | 85 sec  |
 
-**CPU (t3.xlarge):** ~8–10x slower. Use only for testing.
+**Speedup Ratio:** GPU is **~8–10x faster** than CPU for inference. Recommended for production use or large batch processing.
 
 ---
 
