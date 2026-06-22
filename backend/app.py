@@ -516,7 +516,13 @@ def get_body_mesh():
 app = FastAPI(title="nnU-Net 3D segmentation")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("ALLOW_ORIGINS", "*").split(","),
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://www.mvp.smarthermri.com",
+        "https://mvp.smarthermri.com",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
